@@ -1,0 +1,14 @@
+// Was wird gebraucht:
+// Eine Umgebung, die ein Event feuern kann.
+// Ein Eventlistener, der bemerkt, wenn ein Event passiert
+// Ein EventHandler, der das Event bearbeitet.
+
+// Fragen:
+// Wie soll der Hardware Interrupt für zum Beispiel "Press Button" implementiert werden?
+// -> Eine await/wait muss dann eine Callback/Effekt funktion bei der Umgebung hinterlegen.
+
+import immutable/List
+import immutable/Option
+
+effect Event[E, R](event: E): R
+
