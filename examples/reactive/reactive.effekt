@@ -5,7 +5,13 @@
 
 // Fragen:
 // Wie soll der Hardware Interrupt für zum Beispiel "Press Button" implementiert werden?
-// -> Eine await/wait muss dann eine Callback/Effekt funktion bei der Umgebung hinterlegen.
+// -> Eine await/wait muss dann eine Callback/Effekt funktion bei der Umgebung hinterlegen. Wie ?
+
+
+// Fragen über Effekt:
+// - while true mit println produziert ein memory overflow.
+// - import io/args funktioniert nicht
+// - import immutable/Array wird toList nicht importiert. Warum?
 
 import immutable/List
 import immutable/Option
