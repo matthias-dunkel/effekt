@@ -11,10 +11,69 @@
 // Fragen über Effekt:
 // - while true mit println produziert ein memory overflow.
 // - import io/args funktioniert nicht
-// - import immutable/Array wird toList nicht importiert. Warum?
-
+// - import immutable/Array importiert toList nicht importiert. Warum?
 import immutable/List
-import immutable/Option
 
-effect Event[E, R](event: E): R
+record Tuple[F, S] (first: F, second: S)
 
+// Version 1
+
+effect Event {
+    def await(event: String): Unit
+    def emit(event: String): Unit
+}
+
+
+def eventHandler[B](fn:  => B / {Event} at {}) = {
+    var waiting: List[String] = []
+    // Alternativ:
+    // var waiting: List[Tuple[String, Callback für Resume]]
+    try{
+        fn()
+    } with Event {
+        def await(event: String) = {
+            //Wenn wie bei CEU sollte hier das event in den scheduler kommen und das resume sollte eigentlich erst im scheduler vorkommen.
+            waiting.append([event])
+            resume(()) //Geht zurück zu do await. Das ist nicht was wir wollen. Sollte aus der funktion raus. 
+        }
+        def emit(event: String) = {
+        // Wake up all awaiting trails 
+        resume(())
+        }
+    }
+}
+
+def parOr 
+        ( event1:  => Unit / {Event} at {})
+        ( event2:  => Unit / {Event} at {})
+        : Unit / {Event} = {
+    // Trail 1
+    event1() // nach dem do await sollte hier her zurückgegeben werden, damit event2 den nächsten trail anfangen kann
+    // Trail 2
+    event2()
+}
+
+//---- Beispiel Code ----//
+def event1(): Unit / {Event} = {
+    // println("Something") -> leads to an error.
+    do await("Event 1");
+    //println("Event 1 emitted")
+    do emit("Event 2");
+}
+
+def event2(): Unit / {Event} = {
+    // Internal Event emitted Event 1
+    do emit("Event 1")
+    do await("Event 2");
+    //println("Event 2 emitted")
+}
+
+
+def main() = {
+    // Starting with internal events: See https://github.com/ceu-lang/ceu/blob/master/docs/manual/v0.8/manual-toc-v0.8.md#internal-reactions
+    eventHandler[Unit](
+        fun(){ parOr(
+            event1,
+            event2)}
+    )
+}
