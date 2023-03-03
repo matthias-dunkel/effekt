@@ -14,8 +14,6 @@
 // - import immutable/Array importiert toList nicht importiert. Warum?
 import immutable/List
 
-// Version 1
-
 effect Wait {
     def wait(event: String): Unit
 }
@@ -24,10 +22,10 @@ effect Emit {
     def emit(event: String): Unit
 }
 
-def eventHandler(fn:  String =>  Unit / {Emit} at {}) = {
-   var callbacks = []
-   var events = []
- ()
+def eventHandler (fn:  String =>  Unit / {Emit} at {})  = {
+   var callbacks: List[String => Unit / {Emit} at {}] = []
+   var events: List[String] = []
+   ()
 }
 
 def parOr 
@@ -71,6 +69,7 @@ def parOr
 def main() = {
     // Starting with internal events: See https://github.com/ceu-lang/ceu/blob/master/docs/manual/v0.8/manual-toc-v0.8.md#internal-reactions
     
+     eventHandler(  
         parOr 
     {
         println("Trail1: Waiting for Event 1")
@@ -84,4 +83,5 @@ def main() = {
         println("Trail2: Waiting for Event 2")
         do wait("2")
     }
+     )
 }
