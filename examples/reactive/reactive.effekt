@@ -14,66 +14,74 @@
 // - import immutable/Array importiert toList nicht importiert. Warum?
 import immutable/List
 
-record Tuple[F, S] (first: F, second: S)
-
 // Version 1
 
-effect Event {
-    def await(event: String): Unit
+effect Wait {
+    def wait(event: String): Unit
+}
+
+effect Emit {
     def emit(event: String): Unit
 }
 
-
-def eventHandler[B](fn:  => B / {Event} at {}) = {
-    var waiting: List[String] = []
-    // Alternativ:
-    // var waiting: List[Tuple[String, Callback für Resume]]
-    try{
-        fn()
-    } with Event {
-        def await(event: String) = {
-            //Wenn wie bei CEU sollte hier das event in den scheduler kommen und das resume sollte eigentlich erst im scheduler vorkommen.
-            waiting.append([event])
-            resume(()) //Geht zurück zu do await. Das ist nicht was wir wollen. Sollte aus der funktion raus. 
-        }
-        def emit(event: String) = {
-        // Wake up all awaiting trails 
-        resume(())
-        }
-    }
+def eventHandler(fn:  String =>  Unit / {Emit} at {}) = {
+   var callbacks = []
+   var events = []
+ ()
 }
 
 def parOr 
-        ( event1:  => Unit / {Event} at {})
-        ( event2:  => Unit / {Event} at {})
-        : Unit / {Event} = {
-    // Trail 1
-    event1() // nach dem do await sollte hier her zurückgegeben werden, damit event2 den nächsten trail anfangen kann
-    // Trail 2
-    event2()
-}
+        { firstTrail:  => Unit / {Wait} }
+        { secondTrail:  => Unit / {Wait} }
+     = {
 
-//---- Beispiel Code ----//
-def event1(): Unit / {Event} = {
-    // println("Something") -> leads to an error.
-    do await("Event 1");
-    //println("Event 1 emitted")
-    do emit("Event 2");
-}
+        var trail1 = region TrailRegion Tuple3("", false, fun(){()})
+        var trail2 = region TrailRegion Tuple3("", false,  fun(){()}) 
+        try {
+            firstTrail()
+        } with Wait {
+            def wait(event: String) = region WaitRegion {
+                trail1 = Tuple3(event, true, fun(){resume(())})
+            }         
+        }
+        
+        try {
+            secondTrail()
+        } with Wait {
+            def wait(event: String) = region WaitRegion {
+                trail2 = Tuple3(event, true, fun(){resume(())})
+            }
+        }
+        
+        def callback(event: String): Unit / {Emit} = region CallbackRegion {
+            if(event == trail1.first && trail1.second){
+                trail1.third()
+                println("")
+            } else if (event == trail1.first && trail1.second) {
+                trail2.third()
+                println("")
+            }else {
+                ()
+            }       
+        }
 
-def event2(): Unit / {Event} = {
-    // Internal Event emitted Event 1
-    do emit("Event 1")
-    do await("Event 2");
-    //println("Event 2 emitted")
+        callback
 }
-
 
 def main() = {
     // Starting with internal events: See https://github.com/ceu-lang/ceu/blob/master/docs/manual/v0.8/manual-toc-v0.8.md#internal-reactions
-    eventHandler[Unit](
-        fun(){ parOr(
-            event1,
-            event2)}
-    )
+    
+        parOr 
+    {
+        println("Trail1: Waiting for Event 1")
+        do wait("1")
+        println("Trail1: Waiting for Event 2")
+        do wait("2")
+    }
+    {
+        println("Trail2: Waiting for Event 1")
+        do wait("1")
+        println("Trail2: Waiting for Event 2")
+        do wait("2")
+    }
 }
