@@ -12,7 +12,12 @@
 // - while true mit println produziert ein memory overflow.
 // - import io/args funktioniert nicht
 // - import immutable/Array importiert toList nicht importiert. Warum?
-import immutable/List
+import immutable/list
+
+type Option[A] {
+  Present(value: A);
+  Absent()
+}
 
 effect Wait {
     def wait(event: String): Unit
@@ -22,66 +27,104 @@ effect Emit {
     def emit(event: String): Unit
 }
 
-def eventHandler (fn:  String =>  Unit / {Emit} at {})  = {
-   var callbacks: List[String => Unit / {Emit} at {}] = []
-   var events: List[String] = []
-   ()
+// @param trails: A Tuple of internal events and a list of callbacks
+def eventHandler (trails: Tuple2[List[String], Option[String => Boolean at {io}]])  = {
+   var callback: Option[String => Boolean at {io}] = trails.second
+   var events: List[String] = trails.first
+   var handling = true
+
+   while(handling){
+        callback match {
+            case Absent()    => handling = false
+            case Present(fn) => 
+                 events.foreach {
+                    (event: String) => if(fn(event)){
+                                        ()
+                                        } 
+                                        else{
+                                        callback = Absent()
+                                        } 
+                                } 
+        }
+    }
+}
+
+def single{trail: => Unit / {Wait, Emit}} = {
+    var waiting = region WaitingRegion Absent() 
+    var internalEvents: List[String] = region internalEventRegion []
+    try {
+        trail();
+    } with Wait {
+        def wait(event: String) = region X {
+            waiting = Present(fun (emittedEvent: String){
+                var isActive = true
+                if(emittedEvent == event){
+                    resume(())
+                    isActive = false      
+                }
+                isActive
+                })
+            ()
+        }
+    } with Emit {
+        def emit(event: String) = region Y {
+            internalEvents =  internalEvents.append(Cons(event, Nil()))
+            resume(())
+        }
+    }
+    
+    Tuple2(internalEvents, waiting)
 }
 
 def parOr 
-        { firstTrail:  => Unit / {Wait} }
-        { secondTrail:  => Unit / {Wait} }
-     = {
+    {trail1: => Unit / {Wait, Emit}}
+    {trail2: => Unit / {Wait, Emit}} = {
 
-        var trail1 = region TrailRegion Tuple3("", false, fun(){()})
-        var trail2 = region TrailRegion Tuple3("", false,  fun(){()}) 
-        try {
-            firstTrail()
-        } with Wait {
-            def wait(event: String) = region WaitRegion {
-                trail1 = Tuple3(event, true, fun(){resume(())})
-            }         
-        }
-        
-        try {
-            secondTrail()
-        } with Wait {
-            def wait(event: String) = region WaitRegion {
-                trail2 = Tuple3(event, true, fun(){resume(())})
+        var single1 = single{trail1};
+        var single2 = single{trail2};
+        var internalEvents: List[String] = single1.first.append(single2.first);
+
+        def callback(event: String) = {
+
+            if(single1.second(event) && single2.second(event)){
+                true
+            }else{
+                false
             }
-        }
-        
-        def callback(event: String): Unit / {Emit} = region CallbackRegion {
-            if(event == trail1.first && trail1.second){
-                trail1.third()
-                println("")
-            } else if (event == trail1.first && trail1.second) {
-                trail2.third()
-                println("")
-            }else {
-                ()
-            }       
+
         }
 
-        callback
+    Tuple2(internalEvents, callback)
+
 }
 
+
 def main() = {
-    // Starting with internal events: See https://github.com/ceu-lang/ceu/blob/master/docs/manual/v0.8/manual-toc-v0.8.md#internal-reactions
-    
-     eventHandler(  
+    //Exmaples:
+    println("Example 1")
+    eventHandler(
+        single{
+            println("Emitting Event 1")
+            do emit("1")
+            println("Waiting for Event 1")
+            do wait("1")
+            println("Event 1 Happened")
+        }
+    )
+    println("Example 2")
+    eventHandler(
         parOr 
-    {
-        println("Trail1: Waiting for Event 1")
-        do wait("1")
-        println("Trail1: Waiting for Event 2")
-        do wait("2")
-    }
-    {
-        println("Trail2: Waiting for Event 1")
-        do wait("1")
-        println("Trail2: Waiting for Event 2")
-        do wait("2")
-    }
-     )
+            {
+                println("Trail 1: Wait for Event 1")
+                do wait("1")
+                println("Trail 2: Emit Event 2")
+                do emit("2")
+            }
+            {
+                println("Trail 2: Emit Event 1")
+                do emit("1")
+                println("Trail 2: Wait for Event 2")
+                do wait("2")
+            }
+    )
 }
