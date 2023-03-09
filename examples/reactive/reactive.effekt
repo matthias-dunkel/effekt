@@ -1,130 +1,85 @@
-// Was wird gebraucht:
-// Eine Umgebung, die ein Event feuern kann.
-// Ein Eventlistener, der bemerkt, wenn ein Event passiert
-// Ein EventHandler, der das Event bearbeitet.
-
-// Fragen:
-// Wie soll der Hardware Interrupt für zum Beispiel "Press Button" implementiert werden?
-// -> Eine await/wait muss dann eine Callback/Effekt funktion bei der Umgebung hinterlegen. Wie ?
-
-
-// Fragen über Effekt:
-// - while true mit println produziert ein memory overflow.
-// - import io/args funktioniert nicht
-// - import immutable/Array importiert toList nicht importiert. Warum?
-import immutable/list
-
-type Option[A] {
-  Present(value: A);
-  Absent()
-}
+import immutable/List
 
 effect Wait {
     def wait(event: String): Unit
 }
 
-effect Emit {
-    def emit(event: String): Unit
+type Trail {
+    Terminated()
+    Single(event: String, res: Unit => Unit at {})
+    ParOr(firstTrail: Trail, secondTrail: Trail)
 }
 
-// @param trails: A Tuple of internal events and a list of callbacks
-def eventHandler (trails: Tuple2[List[String], Option[String => Boolean at {io}]])  = {
-   var callback: Option[String => Boolean at {io}] = trails.second
-   var events: List[String] = trails.first
-   var handling = true
 
-   while(handling){
-        callback match {
-            case Absent()    => handling = false
-            case Present(fn) => 
-                 events.foreach {
-                    (event: String) => if(fn(event)){
-                                        ()
-                                        } 
-                                        else{
-                                        callback = Absent()
-                                        } 
-                                } 
-        }
-    }
-}
-
-def single{trail: => Unit / {Wait, Emit}} = {
-    var waiting = region WaitingRegion Absent() 
-    var internalEvents: List[String] = region internalEventRegion []
+def single{trail: => Unit / {Wait}}: Trail = {
+    var t: Trail = Terminated()
     try {
-        trail();
+        region TrailRegion trail()
     } with Wait {
-        def wait(event: String) = region X {
-            waiting = Present(fun (emittedEvent: String){
-                var isActive = true
-                if(emittedEvent == event){
-                    resume(())
-                    isActive = false      
-                }
-                isActive
-                })
-            ()
-        }
-    } with Emit {
-        def emit(event: String) = region Y {
-            internalEvents =  internalEvents.append(Cons(event, Nil()))
-            resume(())
+        def wait(event) = region WaitRegion { t = Single(event, resume) }
+    }
+    t
+}
+
+def parOr{firstTrail: => Unit / {Wait}}{secondTrail: => Unit / {Wait}}: Trail = {
+    var t1 = single{firstTrail};
+    var t2 = single{secondTrail};
+
+    if(t1 != Terminated() && t2 != Terminated()){
+        ParOr(t1, t2)
+    } else {
+        Terminated()
+    }
+}
+
+//Folds the trail type over an event
+def eventHandler(t: Trail, event: String): Trail = {
+    t match {
+        case Terminated() => Terminated()
+        case Single(event, res) => single{ res(()) }
+        case ParOr(Terminated(), secondTrail) => Terminated()
+        case ParOr(firstTrail, Terminated()) => Terminated()
+        case ParOr(firstTrail, secondTrail) => eventHandler(ParOr(
+                                                            firstTrail.eventHandler(event),
+                                                            secondTrail.eventHandler(event)
+                                                            ), event
+                                                        ) 
+    }
+}
+
+def eventLoop(t: Trail): Unit = {
+    var trail = t;
+    var timer = 10 // Used to showcase
+    while(trail != Terminated() && timer >= 0) {
+        
+        timer = timer - 1; // Used to showcase
+
+        if(timer == 0) {
+            trail = trail.eventHandler("1") // Used to showcase
         }
     }
-    
-    Tuple2(internalEvents, waiting)
 }
-
-def parOr 
-    {trail1: => Unit / {Wait, Emit}}
-    {trail2: => Unit / {Wait, Emit}} = {
-
-        var single1 = single{trail1};
-        var single2 = single{trail2};
-        var internalEvents: List[String] = single1.first.append(single2.first);
-
-        def callback(event: String) = {
-
-            if(single1.second(event) && single2.second(event)){
-                true
-            }else{
-                false
-            }
-
-        }
-
-    Tuple2(internalEvents, callback)
-
-}
-
 
 def main() = {
-    //Exmaples:
-    println("Example 1")
-    eventHandler(
-        single{
-            println("Emitting Event 1")
-            do emit("1")
+    println("Example 1: Single Trail Only")
+    eventLoop(
+            single{
             println("Waiting for Event 1")
             do wait("1")
             println("Event 1 Happened")
         }
     )
-    println("Example 2")
-    eventHandler(
-        parOr 
-            {
-                println("Trail 1: Wait for Event 1")
-                do wait("1")
-                println("Trail 2: Emit Event 2")
-                do emit("2")
-            }
-            {
-                println("Trail 2: Emit Event 1")
-                do emit("1")
-                println("Trail 2: Wait for Event 2")
-                do wait("2")
-            }
+    println("Example 2: ParOr with Single Trails")
+    eventLoop(
+       parOr{
+            println("Trail1: Waiting for Event 1")
+            do wait("1")
+            println("Trail1: Event 1 Happened")
+       } {
+            println("Trail2: Waiting for Event 1")
+            do wait("1")
+            println("Trail2: Event 1 Happened")
+       }
     )
+
 }
