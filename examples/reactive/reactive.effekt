@@ -1,4 +1,4 @@
-module reactive/effekt
+module reactive/reactive
 import immutable/list
 import immutable/dequeue
 import immutable/option
@@ -28,7 +28,7 @@ def single{trail: => Unit / {Wait, Emit}}: Trail / Emit = {
     t
 }
 
-def parOr{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit}}: Trail / Emit = {
+def parOr{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit}}: Trail / Emit  = {
     var t1 = single{firstTrail};
     var t2 = single{secondTrail};
 
@@ -40,7 +40,7 @@ def parOr{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit
 }
 
 //Folds the trail type over an event
-def eventHandler(t: Trail, event: String): Trail / Emit = {
+def eventHandler(t: Trail, event: String): Trail / Emit  = {
     t match {
         case Terminated() => Terminated()
         case Single(event, res) => single{ res(()) }
@@ -54,44 +54,63 @@ def eventHandler(t: Trail, event: String): Trail / Emit = {
     }
 }
 
-def eventLoop(t: Trail): Unit = {
-    var trail = t;
+
+def eventLoop{t: => Trail / Emit }: Unit / {} = {
     var eventQueue: Dequeue[String] = Dequeue([], 0, [], 0)
-   
-    while(trail != Terminated()) {
-        try {
+    try {
+        var trail = t();
+        while(trail != Terminated()) {
             while(eventQueue.isEmpty() == false){
-            var popped = eventQueue.popFront()
-            popped match {
-                case None() => ()
-                case Some((e, q)) => eventQueue = q; trail = trail.eventHandler(e)
-                }
+                var popped = eventQueue.popFront()
+                popped match {
+                    case None() => ()
+                    case Some((e, q)) => 
+                        eventQueue = q;
+                        trail = trail.eventHandler(e)
+                    }
             }
-        } with Emit {
-            def emit(event: String) = eventQueue = eventQueue.pushBack(event)
         }
-    }
+    } 
+    with Emit {
+        def emit(event: String) = {
+            eventQueue = eventQueue.pushBack(event);
+            resume(())
+        }
+    }    
 }
 
-def main() = {
+def example1(): Unit / {} = {
     println("Example 1: Single Trail Only")
-    eventLoop(
+    eventLoop{
             single{
             println("Waiting for Event 1")
             do wait("1")
             println("Event 1 Happened")
         }
-    )
+    }
+}
+
+def example2(): Unit / {} = {
     println("Example 2: ParOr with Single Trails")
-    eventLoop(
+    eventLoop{
        parOr{
             println("Trail1: Waiting for Event 1")
             do wait("1")
             println("Trail1: Event 1 Happened")
-       } {
-            println("Trail2: Waiting for Event 1")
-            do wait("1")
-            println("Trail2: Event 1 Happened")
+            println("Trail1: Emit Event 2")
+            do emit("2")
+            
+       } {  
+            println("Trail2: Emit Event 1")
+            do emit("1")
+            println("Trail2: Waiting for Event 2")
+            do wait("2")
+            println("Trail2: Event 2 Happened")
        }
-    )
+    }
+}
+
+def main() = {
+    //example1()
+    example2()
 }
