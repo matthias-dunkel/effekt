@@ -1,7 +1,14 @@
-import immutable/List
+module reactive/effekt
+import immutable/list
+import immutable/dequeue
+import immutable/option
 
 effect Wait {
-    def wait(event: String): Unit
+    def wait(event: String): Unit 
+}
+
+effect Emit {
+    def emit(event: String): Unit
 }
 
 type Trail {
@@ -11,7 +18,7 @@ type Trail {
 }
 
 
-def single{trail: => Unit / {Wait}}: Trail = {
+def single{trail: => Unit / {Wait, Emit}}: Trail / Emit = {
     var t: Trail = Terminated()
     try {
         region TrailRegion trail()
@@ -21,7 +28,7 @@ def single{trail: => Unit / {Wait}}: Trail = {
     t
 }
 
-def parOr{firstTrail: => Unit / {Wait}}{secondTrail: => Unit / {Wait}}: Trail = {
+def parOr{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit}}: Trail / Emit = {
     var t1 = single{firstTrail};
     var t2 = single{secondTrail};
 
@@ -33,7 +40,7 @@ def parOr{firstTrail: => Unit / {Wait}}{secondTrail: => Unit / {Wait}}: Trail = 
 }
 
 //Folds the trail type over an event
-def eventHandler(t: Trail, event: String): Trail = {
+def eventHandler(t: Trail, event: String): Trail / Emit = {
     t match {
         case Terminated() => Terminated()
         case Single(event, res) => single{ res(()) }
@@ -49,13 +56,19 @@ def eventHandler(t: Trail, event: String): Trail = {
 
 def eventLoop(t: Trail): Unit = {
     var trail = t;
-    var timer = 10 // Used to showcase
-    while(trail != Terminated() && timer >= 0) {
-        
-        timer = timer - 1; // Used to showcase
-
-        if(timer == 0) {
-            trail = trail.eventHandler("1") // Used to showcase
+    var eventQueue: Dequeue[String] = Dequeue([], 0, [], 0)
+   
+    while(trail != Terminated()) {
+        try {
+            while(eventQueue.isEmpty() == false){
+            var popped = eventQueue.popFront()
+            popped match {
+                case None() => ()
+                case Some((e, q)) => eventQueue = q; trail = trail.eventHandler(e)
+                }
+            }
+        } with Emit {
+            def emit(event: String) = eventQueue = eventQueue.pushBack(event)
         }
     }
 }
@@ -81,5 +94,4 @@ def main() = {
             println("Trail2: Event 1 Happened")
        }
     )
-
 }
