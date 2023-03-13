@@ -15,8 +15,8 @@ type Trail {
     Terminated()
     Single(event: String, res: Unit => Unit at {})
     ParOr(firstTrail: Trail, secondTrail: Trail)
+    ParAnd(firstTrail: Trail, secondTrail: Trail)
 }
-
 
 def single{trail: => Unit / {Wait, Emit}}: Trail / Emit = {
     var t: Trail = Terminated()
@@ -39,18 +39,35 @@ def parOr{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit
     }
 }
 
-//Folds the trail type over an event
+def parAnd{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emit}}: Trail / Emit  = {
+    var t1 = single{firstTrail};
+    var t2 = single{secondTrail};
+
+    if(t1 != Terminated() || t2 != Terminated()){
+        ParAnd(t1, t2)
+    } else {
+        Terminated()
+    }
+}
+
 def eventHandler(t: Trail, event: String): Trail / Emit  = {
     t match {
         case Terminated() => Terminated()
+        
         case Single(event, res) => single{ res(()) }
+        
         case ParOr(Terminated(), secondTrail) => Terminated()
         case ParOr(firstTrail, Terminated()) => Terminated()
-        case ParOr(firstTrail, secondTrail) => eventHandler(ParOr(
-                                                            firstTrail.eventHandler(event),
-                                                            secondTrail.eventHandler(event)
-                                                            ), event
-                                                        ) 
+        case ParOr(firstTrail, secondTrail) => ParOr(
+                                                    firstTrail.eventHandler(event),
+                                                    secondTrail.eventHandler(event)
+                                                    )
+        
+        case ParAnd(Terminated(), Terminated()) => Terminated()
+        case ParAnd(firstTrail, secondTrail) => ParAnd(
+                                                    firstTrail.eventHandler(event), 
+                                                    secondTrail.eventHandler(event)
+                                                    )                                                 
     }
 }
 
