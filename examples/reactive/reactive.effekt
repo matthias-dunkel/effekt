@@ -3,19 +3,25 @@ import immutable/list
 import immutable/dequeue
 import immutable/option
 
-effect Wait {
-    def wait(event: String): Unit 
+type EventData {
+    Base()
 }
 
-effect Emit {
-    def emit(event: String): Unit
-}
+record Event(id: String, data: EventData)
 
 type Trail {
     Terminated()
-    Single(event: String, res: Unit => Unit at {})
+    Single(event: String, res: EventData => Unit at {})
     ParOr(firstTrail: Trail, secondTrail: Trail)
     ParAnd(firstTrail: Trail, secondTrail: Trail)
+}
+
+effect Wait {
+    def wait(event: String): EventData 
+}
+
+effect Emit {
+    def emit(event: Event): Unit
 }
 
 def single{trail: => Unit / {Wait, Emit}}: Trail / Emit = {
@@ -50,11 +56,13 @@ def parAnd{firstTrail: => Unit / {Wait, Emit}}{secondTrail: => Unit / {Wait, Emi
     }
 }
 
-def eventHandler(t: Trail, event: String): Trail / Emit  = {
+def eventHandler(t: Trail, event: Event): Trail / Emit  = {
+    var eventId = event.id;
+    var eventData = event.data;
     t match {
         case Terminated() => Terminated()
         
-        case Single(event, res) => single{ res(()) }
+        case Single(eventId, res) => single{ res(eventData) }
         
         case ParOr(Terminated(), secondTrail) => Terminated()
         case ParOr(firstTrail, Terminated()) => Terminated()
@@ -73,7 +81,7 @@ def eventHandler(t: Trail, event: String): Trail / Emit  = {
 
 
 def eventLoop{t: => Trail / Emit }: Unit / {} = {
-    var eventQueue: Dequeue[String] = Dequeue([], 0, [], 0)
+    var eventQueue: Dequeue[Event] = Dequeue([], 0, [], 0)
     try {
         var trail = t();
         while(trail != Terminated()) {
@@ -89,7 +97,7 @@ def eventLoop{t: => Trail / Emit }: Unit / {} = {
         }
     } 
     with Emit {
-        def emit(event: String) = {
+        def emit(event: Event) = {
             eventQueue = eventQueue.pushBack(event);
             resume(())
         }
@@ -115,11 +123,11 @@ def example2(): Unit / {} = {
             do wait("1")
             println("Trail1: Event 1 Happened")
             println("Trail1: Emit Event 2")
-            do emit("2")
+            do emit(Event("2", Base()))
             
        } {  
             println("Trail2: Emit Event 1")
-            do emit("1")
+            do emit(Event("1", Base()))
             println("Trail2: Waiting for Event 2")
             do wait("2")
             println("Trail2: Event 2 Happened")
