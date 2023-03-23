@@ -81,11 +81,14 @@ def eventHandler(t: Trail, event: Event): Trail / Emit  = {
 
 
 def eventLoop{t: => Trail / Emit }: Unit / {} = {
-    var eventQueue: Dequeue[Event] = Dequeue([], 0, [], 0)
+    extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0)"
+
+    var eventQueue: Dequeue[Event] = emptyQueue()
     try {
         var trail = t();
-        while(trail != Terminated()) {
-            while(eventQueue.isEmpty() == false){
+        
+        def helper(): Unit = {
+            if(trail != Terminated() && not(eventQueue.isEmpty())) {
                 var popped = eventQueue.popFront()
                 popped match {
                     case None() => ()
@@ -93,8 +96,11 @@ def eventLoop{t: => Trail / Emit }: Unit / {} = {
                         eventQueue = q;
                         trail = trail.eventHandler(e)
                     }
+                nextIteration{helper()}
             }
         }
+
+        helper()
     } 
     with Emit {
         def emit(event: Event) = {
