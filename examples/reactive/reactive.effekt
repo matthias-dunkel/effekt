@@ -11,13 +11,6 @@ type EventData {
 
 record Event(id: String, data: EventData)
 
-type Trail {
-    Terminated()
-    Single(event: String, res: EventData => Unit at {})
-    ParOr(firstTrail: Trail, secondTrail: Trail)
-    ParAnd(firstTrail: Trail, secondTrail: Trail)
-}
-
 effect Wait {
     def wait(event: String): EventData 
 }
