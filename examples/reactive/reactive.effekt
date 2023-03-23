@@ -3,6 +3,8 @@ import immutable/list
 import immutable/dequeue
 import immutable/option
 
+import coroutine
+
 type EventData {
     Base()
 }
@@ -20,81 +22,72 @@ effect Wait {
     def wait(event: String): EventData 
 }
 
-def single{trail: => Unit / {Wait}}: Trail = {
-    var t: Trail = Terminated()
+def single{trail: => Unit / {Wait}}: Coroutine[Event] = {
+    var t = Done()
     try {
         region TrailRegion trail()
     } with Wait {
-        def wait(event) = region WaitRegion { t = Single(event, resume) }
+        def wait(event) = region WaitRegion { 
+            t = More(
+                fun(_event: Event){
+                    if(event == _event.id){
+                        single{ resume(_event.data) }
+                    } else {
+                        Done()
+                    }
+                }
+            )
+         }
     }
     t
 }
 
-def parOr{firstTrail: => Unit / {Wait}}{secondTrail: => Unit / {Wait}}: Trail = {
-    var t1 = single{firstTrail};
-    var t2 = single{secondTrail};
-
-    if(t1 != Terminated() && t2 != Terminated()){
-        ParOr(t1, t2)
-    } else {
-        Terminated()
+def parOr(firstTrail: Coroutine[Event],  secondTrail: Coroutine[Event]): Coroutine[Event] = {
+    Tuple2(firstTrail, secondTrail) match {
+        case Tuple2(Done(), t) => Done()
+        case Tuple2(t, Done()) => Done()
+        case Tuple2(More(f1), More(f2)) => More(
+            fun(event: Event){
+                parOr(f1(event), f2(event))
+            }
+        ) 
     }
 }
 
-def parAnd{firstTrail: => Unit / {Wait}}{secondTrail: => Unit / {Wait}}: Trail = {
-    var t1 = single{firstTrail};
-    var t2 = single{secondTrail};
-
-    if(t1 != Terminated() || t2 != Terminated()){
-        ParAnd(t1, t2)
-    } else {
-        Terminated()
+def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Coroutine[Event] = {
+   Tuple2(firstTrail, secondTrail) match {
+        case Tuple2(Done(), Done()) => Done()
+        case Tuple2(More(f1), More(f2)) => More(
+            fun(event: Event){
+                parAnd(f1(event), f2(event))
+            }
+        ) 
     }
 }
 
-def eventHandler(t: Trail, event: Event): Trail  = {
-    var eventId = event.id;
-    var eventData = event.data;
-    t match {
-        case Terminated() => Terminated()
-        
-        case Single(eventId, res) => single{ res(eventData) }
-        
-        case ParOr(Terminated(), secondTrail) => Terminated()
-        case ParOr(firstTrail, Terminated()) => Terminated()
-        case ParOr(firstTrail, secondTrail) => ParOr(
-                                                    firstTrail.eventHandler(event),
-                                                    secondTrail.eventHandler(event)
-                                                    )
-        
-        case ParAnd(Terminated(), Terminated()) => Terminated()
-        case ParAnd(firstTrail, secondTrail) => ParAnd(
-                                                    firstTrail.eventHandler(event), 
-                                                    secondTrail.eventHandler(event)
-                                                    )                                                 
-    }
-}
-
-
-def eventLoop{t: => Trail }: Unit / {} = {
+def eventLoop(t: Coroutine[Event]) : Unit / {} = {
     extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0)"
 
     var eventQueue: Dequeue[Event] = emptyQueue()
-    var trail = t();
+    
+    var trail = t;
         
     def helper(): Unit = {
-        if(trail != Terminated() && not(eventQueue.isEmpty())) {
+    
+        if(trail != Done() && not(eventQueue.isEmpty())) {
             var popped = eventQueue.popFront()
             popped match {
                 case None() => ()
                 case Some((e, q)) => 
                     eventQueue = q;
-                    trail = trail.eventHandler(e)
+                    trail match {
+                        case Done() => ()
+                        case More(f) => trail = f(e)
+                    }
                 }
             nextIteration{helper()}
         }
     }
-
     helper()    
 }
 
