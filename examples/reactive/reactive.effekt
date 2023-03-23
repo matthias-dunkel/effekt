@@ -65,18 +65,18 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
     }
 }
 
-def eventLoop(t: Coroutine[Event]) : Unit / {} = {
+def eventLoop(t: Coroutine[Event]){poll: => Dequeue[Event]} : Unit / {} = {
     extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0)"
 
-    var eventQueue: Dequeue[Event] = emptyQueue()
-    
     var trail = t;
         
-    def helper(): Unit = {
-    
-        if(trail != Done() && not(eventQueue.isEmpty())) {
-            var popped = eventQueue.popFront()
-            popped match {
+    def loop(): Unit = {
+        var eventQueue: Dequeue[Event] = poll()
+
+        if(trail != Done()) {
+            while(not(eventQueue.isEmpty())){
+                var popped = eventQueue.popFront()
+                popped match {
                 case None() => ()
                 case Some((e, q)) => 
                     eventQueue = q;
@@ -85,10 +85,12 @@ def eventLoop(t: Coroutine[Event]) : Unit / {} = {
                         case More(f) => trail = f(e)
                     }
                 }
-            nextIteration{helper()}
+            }
+            nextIteration{loop()}
         }
+        
     }
-    helper()    
+    loop()    
 }
 
 def main() = {
