@@ -1,8 +1,7 @@
-// Extern related
 module reactive/jsenv
 import immutable/list
 import immutable/dequeue
-import reactive
+import reactive/types
 
 extern include "jsenv.js"
 
@@ -51,10 +50,9 @@ extern io def waitForSecs(env: JSEnv,t: Int): String = "env.waitForSecs(t)"
 
 // Effekt related
 
-def toEvent(event: JSEvent): Event = Event(event.getEventId(), Base()) // De/Serialize Funktionalität
+def toEvent(event: JSEvent): Event = Event(event.getEventId(), Base()) //De/Serialize Funktionalität
 
-def createPollEvents(env: JSEnv): EventPoll = fun() {
+def pollEvents(env: JSEnv): => Dequeue[Event] at {} = fun() {
         var events = pollJSEvents(env).toList{ toEvent }
         Dequeue(events, events.size, [], 0)
 }
-

@@ -1,4 +1,3 @@
-// Namespacing
 class JSEnv {
     constructor(){
         this.eventQueue = []
