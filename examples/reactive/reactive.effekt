@@ -68,13 +68,3 @@ def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {
     }
 }
 
-def main() = {
-    var jsenv = createEnv()
-    
-    eventLoop(
-        single{
-            var result = do wait(jsenv.waitForSecs(2)); 
-            println("Done");
-            }, 
-            jsenv.pollEvents)
-}
