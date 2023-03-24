@@ -3,13 +3,8 @@ import immutable/list
 import immutable/dequeue
 import immutable/option
 
-import coroutine
-
-type EventData {
-    Base()
-}
-
-record Event(id: String, data: EventData)
+import reactive/types
+import reactive/jsenv
 
 effect Wait {
     def wait(event: String): EventData 
@@ -58,34 +53,28 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
     }
 }
 
-def eventLoop(t: Coroutine[Event]){poll: => Dequeue[Event]} : Unit / {} = {
-    extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0)"
+extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0);"
 
-    var trail = t;
-        
-    def loop(): Unit = {
-        var eventQueue: Dequeue[Event] = poll()
-
-        if(trail != Done()) {
-            while(not(eventQueue.isEmpty())){
-                var popped = eventQueue.popFront()
-                popped match {
-                case None() => ()
-                case Some((e, q)) => 
-                    eventQueue = q;
-                    trail match {
-                        case Done() => ()
-                        case More(f) => trail = f(e)
-                    }
-                }
+def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = {
+    if(trail != Done()) {
+       poll().popFront() match {
+       case None() => nextIteration{eventLoop(trail, poll)} 
+       case Some((e, q)) 
+         => trail match {
+                    case Done()  => ()
+                    case More(f) => nextIteration{eventLoop(f(e), poll)}
             }
-            nextIteration{loop()}
         }
-        
     }
-    loop()    
 }
 
 def main() = {
-    ()
+    var jsenv = createEnv()
+    
+    eventLoop(
+        single{
+            var result = do wait(jsenv.waitForSecs(2)); 
+            println("Done");
+            }, 
+            jsenv.pollEvents)
 }
