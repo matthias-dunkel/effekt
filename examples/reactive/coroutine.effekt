@@ -1,6 +1,0 @@
-module reactive/coroutine
-
-type Coroutine[A] {
-    Done()
-    More(f: A => Coroutine[A] at {})
-}

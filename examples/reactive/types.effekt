@@ -1,0 +1,12 @@
+module reactive/types
+
+type Coroutine[A] {
+    Done()
+    More(f: A => Coroutine[A] at {})
+}
+
+type EventData {
+    Base()
+}
+
+record Event(id: String, data: EventData)
