@@ -46,7 +46,7 @@ extern pure def getEventId(event: JSEvent): String = "event.id"
 
 extern pure def getEventData(event: JSEvent): EventData = "event.data"
 
-extern io def waitForSecs(env: JSEnv,t: Int): String = "env.waitForSecs(t)"
+extern io def waitFor(env: JSEnv,t: Int): String = "env.waitFor(t)"
 
 // Effekt related
 

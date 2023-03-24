@@ -9,7 +9,7 @@ class JSEnv {
         return events
     }
 
-    waitForSecs(ms) {
+    waitFor(ms) {
         var eventId = "waitForSecs" + Date.now() + ms
         
         setTimeout(() => {
