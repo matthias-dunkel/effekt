@@ -2,7 +2,7 @@ module reactive/types
 
 type Coroutine[A] {
     Done()
-    More(f: A => Coroutine[A] at {})
+    More(f: A => Coroutine[A] at {global})
 }
 
 type EventData {

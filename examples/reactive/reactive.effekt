@@ -3,31 +3,42 @@ import immutable/list
 import immutable/dequeue
 import immutable/option
 
-import reactive/types
-import reactive/jsenv
+type EventData {
+    Base()
+}
+
+record Event(id: String, data: EventData)
+
+type Coroutine[A] {
+    Done()
+    More(f: A => Coroutine[A] at {})
+}
 
 effect Wait {
     def wait(event: String): EventData 
 }
 
-def single{trail: => Unit / {Wait}}: Coroutine[Event] = {
-    var t = Done()
+def single(trail: => Unit / {Wait} at {}): Coroutine[Event] = {
     try {
-        region TrailRegion trail()
+        trail();
+        Done()
     } with Wait {
-        def wait(event) = region WaitRegion { 
-            t = More(
+        def wait(event) = {
+            //println("handle wait"); 
+
+            More(
                 fun(_event: Event){
                     if(event == _event.id){
-                        single{ resume(_event.data) }
+                        resume(_event.data)
                     } else {
                         Done()
                     }
+                   
                 }
             )
          }
     }
-    t
+    
 }
 
 def parOr(firstTrail: Coroutine[Event],  secondTrail: Coroutine[Event]): Coroutine[Event] = {
@@ -53,12 +64,13 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
     }
 }
 
-extern io def nextIteration[A]{f: => A }: Unit = "setTimeout(f, 0);"
+extern io def nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
 
-def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = {
+def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = region Event {
+    //var x in EventLoop = 
     if(trail != Done()) {
        poll().popFront() match {
-       case None() => nextIteration{eventLoop(trail, poll)} 
+       case None() => nextIteration{eventLoop(trail, poll)}
        case Some((e, q)) 
          => trail match {
                     case Done()  => ()
@@ -66,5 +78,6 @@ def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {
             }
         }
     }
+    ()
 }
 

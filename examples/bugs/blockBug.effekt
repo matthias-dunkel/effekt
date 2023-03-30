@@ -1,0 +1,34 @@
+import unsafe/cont
+extern io def nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
+// Does not work
+def loop0{f : => Unit}: Unit = {
+    f()
+    nextIteration{ loop0{f} }
+}
+
+//Works
+def loop1{ f: => Unit }: Unit = {
+    nextIteration{ loop1{f} }
+    f()
+}
+
+// Works
+def loop2( f: => Unit at {} ): Unit = {
+    f()
+    nextIteration{loop2(f)}
+}
+
+// Works
+def loop3{f : => Unit}: Unit = region Loop {
+    f()
+    var n in Loop = nextIteration{ loop1{f} }
+    ()
+}
+
+def main() = {
+    loop0{()} // Terminiert
+    //loop1{()}; // Terminiert nicht.
+    //loop2(fun(){()}); // Terminiert nicht. 
+    // loop3(()); // Terminiert nicht.
+    ()
+}

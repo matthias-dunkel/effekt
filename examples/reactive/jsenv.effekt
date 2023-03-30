@@ -1,7 +1,7 @@
 module reactive/jsenv
 import immutable/list
 import immutable/dequeue
-import reactive/types
+import reactive/reactive
 
 extern include "jsenv.js"
 

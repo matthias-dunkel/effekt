@@ -1,0 +1,28 @@
+type Coroutine[A] {
+    Done()
+    More(f: A => Coroutine[A] at {})
+}
+
+def createCoroutine(): Coroutine[String] = {
+    var cr = Done();
+    cr = More(
+            fun(s:String){
+                    Done()
+                }
+            )
+    cr
+}
+
+def work{cr: => Coroutine[String]} =  {
+    var coroutine = cr();
+    coroutine
+}
+
+//def main() = {
+//    work{createCoroutine()}
+//}
+
+def main() = {
+ var i in this = 1;
+ ()
+}
