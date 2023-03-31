@@ -11,21 +11,20 @@ record Event(id: String, data: EventData)
 
 type Coroutine[A] {
     Done()
-    More(f: A => Coroutine[A] at {})
+    More(f: A => Coroutine[A] at {global, io})
 }
 
 effect Wait {
     def wait(event: String): EventData 
 }
 
-def single(trail: => Unit / {Wait} at {}): Coroutine[Event] = {
+def single(trail: => Unit / {Wait} at {global, io}): Coroutine[Event] = {
     try {
         trail();
         Done()
     } with Wait {
         def wait(event) = {
             //println("handle wait"); 
-
             More(
                 fun(_event: Event){
                     if(event == _event.id){
@@ -56,11 +55,24 @@ def parOr(firstTrail: Coroutine[Event],  secondTrail: Coroutine[Event]): Corouti
 def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Coroutine[Event] = {
    Tuple2(firstTrail, secondTrail) match {
         case Tuple2(Done(), Done()) => Done()
+        
         case Tuple2(More(f1), More(f2)) => More(
             fun(event: Event){
                 parAnd(f1(event), f2(event))
             }
-        ) 
+        )
+
+        case Tuple2(Done(), More(f)) => More(
+            fun(event: Event){
+                parAnd(Done(), f(event))
+            }
+        )
+
+        case Tuple2(More(f), Done()) => More(
+            fun(event: Event){
+                parAnd(f(event), Done() )
+            }
+        )
     }
 }
 

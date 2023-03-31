@@ -6,31 +6,32 @@ import reactive/jsenv
 // Single Example. After 2 Second the eventloop should terminate.
 def example1() = {
     println("Example 1: After 2 seconds 'Done'")
-    var jsenv = createEnv()
+    val jsenv = createEnv()
 
     eventLoop(
-        single{
-            var result = do wait(jsenv.waitFor(2000)); 
-            println("Done Waiting 1");
-            result = do wait(jsenv.waitFor(2000));
-            println("Done Waiting 2");
-            },    
+        single(
+            fun(){
+                var result = do wait(jsenv.waitFor(2000)); 
+                println("Done Waiting 1");
+                result = do wait(jsenv.waitFor(2000));
+                println("Done Waiting 2");
+            }),    
         jsenv.pollEvents)
 }
 
 // ParOr Example. After 5 seconds the eventloop should terminate
 def example2() = {
     println("Example 2: Trail 1 should print 'Done'")
-    var jsenv = createEnv()
-    var trail =  parOr(
-            single{
+    val jsenv = createEnv()
+    val trail =  parOr(
+            single(fun(){
                 do wait(jsenv.waitFor(5000))
                 println("Trail 1: Done")
-            },
-            single{
+            }),
+            single(fun(){
                 do wait(jsenv.waitFor(6000))
                 println("Trail 2: Done")
-            }
+            })
         )
 
     eventLoop(trail, jsenv.pollEvents)
@@ -38,23 +39,23 @@ def example2() = {
 // ParAnd Example. After 6 seconds the eventloop should terminate
 def example3() = {
     println("Example 3: Both Trails should print 'Done'")
-    var jsenv =  createEnv()
-    var trail =  parAnd(
-            single{
+    val jsenv =  createEnv()
+    val trail =  parAnd(
+            single(fun(){
                 do wait(jsenv.waitFor(5000))
                 println("Trail 1: Done")
-            },
-            single{
+            }),
+            single(fun(){
                 do wait(jsenv.waitFor(6000))
                 println("Trail 2: Done")
-            }
+            })
         )
 
     eventLoop(trail, jsenv.pollEvents)
 }
 
 def main() = {
-    example1()
+    //example1()
     //example2()
-    //example3()
+    example3()
 }
