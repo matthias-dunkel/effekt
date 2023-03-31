@@ -11,7 +11,7 @@ record Event(id: String, data: EventData)
 
 type Coroutine[A] {
     Done()
-    More(f: A => Coroutine[A] at {global, io})
+    More(f: (A, Coroutine[A]) => Coroutine[A] at {global, io})
 }
 
 effect Wait {
@@ -24,32 +24,29 @@ def single(trail: => Unit / {Wait} at {global, io}): Coroutine[Event] = {
         Done()
     } with Wait {
         def wait(event) = {
-            //println("handle wait"); 
             More(
-                fun(_event: Event){
+                fun(_event: Event, before: Coroutine[Event]){
                     if(event == _event.id){
                         resume(_event.data)
-                    } else {
-                        Done()
+                    }else{
+                        before
                     }
-                   
                 }
             )
-         }
+         } 
     }
-    
 }
 
 def parOr(firstTrail: Coroutine[Event],  secondTrail: Coroutine[Event]): Coroutine[Event] = {
     Tuple2(firstTrail, secondTrail) match {
-        case Tuple2(Done(), t) => Done()
-        case Tuple2(t, Done()) => Done()
         case Tuple2(More(f1), More(f2)) => More(
-            fun(event: Event){
-                parOr(f1(event), f2(event))
+            fun(event: Event, before: Coroutine[Event]){
+                parOr(f1(event, More(f1)), f2(event, More(f2)))
             }
-        ) 
+        )
+        case Tuple2(t1, t2) => Done() 
     }
+    
 }
 
 def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Coroutine[Event] = {
@@ -57,20 +54,20 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
         case Tuple2(Done(), Done()) => Done()
         
         case Tuple2(More(f1), More(f2)) => More(
-            fun(event: Event){
-                parAnd(f1(event), f2(event))
+            fun(event: Event, before: Coroutine[Event]){
+                parAnd(f1(event, More(f1)), f2(event, More(f2)))
             }
         )
 
         case Tuple2(Done(), More(f)) => More(
-            fun(event: Event){
-                parAnd(Done(), f(event))
+            fun(event: Event, before: Coroutine[Event]){
+                parAnd(Done(), f(event, More(f)))
             }
         )
 
         case Tuple2(More(f), Done()) => More(
-            fun(event: Event){
-                parAnd(f(event), Done() )
+            fun(event: Event, before: Coroutine[Event]){
+                parAnd(f(event, More(f)), Done() )
             }
         )
     }
@@ -78,15 +75,14 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
 
 extern io def nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
 
-def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = region Event {
-    //var x in EventLoop = 
+def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = {
     if(trail != Done()) {
        poll().popFront() match {
        case None() => nextIteration{eventLoop(trail, poll)}
        case Some((e, q)) 
          => trail match {
                     case Done()  => ()
-                    case More(f) => nextIteration{eventLoop(f(e), poll)}
+                    case More(f) => nextIteration{eventLoop(f(e, More(f)), poll)}
             }
         }
     }
