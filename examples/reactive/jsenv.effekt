@@ -44,13 +44,25 @@ extern pure def pollJSEvents(env: JSEnv): JSArray = "env.pollEvents()"
 
 extern pure def getEventId(event: JSEvent): String = "event.id"
 
-extern pure def getEventData(event: JSEvent): EventData = "event.data"
+extern pure def getEventData[A](event: JSEvent): A = "event.data"
+
+extern pure def getEventType(event: JSEvent): String = "event.type"
 
 extern io def waitFor(env: JSEnv,t: Int): String = "env.waitFor(t)"
 
+extern io def question(env: JSEnv, question: String): String = "env.question(question)"
+
 // Effekt related
 
-def toEvent(event: JSEvent): Event = Event(event.getEventId(), Base()) //De/Serialize Funktionalität
+def toEvent(event: JSEvent): Event = {
+    val eventType = event.getEventType()
+    
+    if(eventType == "question") {
+        Event(event.getEventId(), StringData(event.getEventData()))
+    } else {
+        Event(event.getEventId(), Base())
+    }
+} 
 
 def pollEvents(env: JSEnv): => Dequeue[Event] at {} = fun() {
         var events = pollJSEvents(env).toList{ toEvent }
