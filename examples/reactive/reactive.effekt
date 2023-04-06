@@ -20,7 +20,7 @@ def isStringData(event: EventData): Boolean = event match {
 }
 
 def isIntData(event: EventData): Boolean = event match {
-    case StringData(d) => true
+    case IntData(d) => true
     case ev => false
 }
 
