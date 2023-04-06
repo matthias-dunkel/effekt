@@ -11,10 +11,8 @@ def example1() = {
     eventLoop(
         single(
             fun(){
-                var result = do wait(jsenv.waitFor(2000)); 
+                do wait(jsenv.waitFor(2000)); 
                 println("Done Waiting 1");
-                result = do wait(jsenv.waitFor(2000));
-                println("Done Waiting 2");
             }),    
         jsenv.pollEvents)
 }
@@ -54,8 +52,24 @@ def example3() = {
     eventLoop(trail, jsenv.pollEvents)
 }
 
+// Input Example. Run with Node.js!
+def example4() = {
+    println("Example 4: An Input Event.")
+    val jsenv = createEnv()
+    val trail = single(
+        fun(){
+            val input = do wait(jsenv.question("What is your name?"))
+            println(input)
+            println(input.unsafeToString())
+        }
+    )
+
+    eventLoop(trail, jsenv.pollEvents)
+}
+
 def main() = {
     //example1()
     //example2()
-    example3()
+    //example3()
+    example4()
 }
