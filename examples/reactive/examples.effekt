@@ -67,9 +67,31 @@ def example4() = {
     eventLoop(trail, jsenv.pollEvents)
 }
 
+def example5() = {
+    println("Example 5: A little Game: Guess the Number");
+    val jsenv = createEnv()
+    val trail = single(
+        fun(){
+            val number = floor(random() * 10.0)
+            var guessed = do wait(jsenv.question("Guess a number between 0 and 10")).unsafeToInt()
+            while(not(guessed == number)){
+                if(guessed < number) {
+                    guessed = do wait(jsenv.question("Wrong! Higher. Guess again")).unsafeToInt()
+                } else {
+                    guessed = do wait(jsenv.question("Wrong! Lower. Guess again")).unsafeToInt()
+                }
+            }
+            println("Correct!")
+        }
+    )
+
+    eventLoop(trail, jsenv.pollEvents)  
+}
+
 def main() = {
     //example1()
     //example2()
     //example3()
-    example4()
+    //example4()
+    example5()
 }
