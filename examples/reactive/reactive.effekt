@@ -24,13 +24,17 @@ def isIntData(event: EventData): Boolean = event match {
     case ev => false
 }
 
+extern pure def JStoString(number: Int): String = "toString(number)"
 def unsafeToString(event: EventData): String = event match {
     case StringData(d) => d
     case ev => ""
 }
 
+extern pure def JSparseInt(string: String): Int = "parseInt(string)"
+
 def unsafeToInt(event: EventData): Int = event match {
     case IntData(d) => d
+    case StringData(d) => JSparseInt(d)
     case ev => 0
 }
 
