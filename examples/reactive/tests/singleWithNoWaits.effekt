@@ -1,0 +1,9 @@
+module reactive/tests/singleWithNoWaits
+
+import reactive/reactive
+import reactive/jsenv
+
+def main() = {
+    val env = createEnv()
+    eventLoop(single(fun(){()}), env.pollEvents)
+}
