@@ -1,0 +1,22 @@
+module reactive/examples
+
+import reactive/reactive
+import reactive/jsenv
+
+def main() = {
+    println("Example 3: Both Trails should print 'Done'")
+    val jsenv =  createEnv()
+    val trail =  parAnd(
+            single(fun(){
+                do wait(jsenv.waitFor(5000))
+                println("Trail 1: Done")
+            }),
+            single(fun(){
+                do wait(jsenv.waitFor(6000))
+                println("Trail 2: Done")
+            })
+        )
+
+    eventLoop(trail, jsenv.pollEvents)
+}
+

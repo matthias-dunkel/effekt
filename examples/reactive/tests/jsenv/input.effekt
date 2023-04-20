@@ -1,0 +1,18 @@
+module reactive/examples
+
+import reactive/reactive
+import reactive/jsenv
+
+def main() = {
+    println("Example 4: An Input Event.")
+    val jsenv = createEnv()
+    val trail = single(
+        fun(){
+            val input = do wait(jsenv.question("What is your name?"))
+            println(input)
+            println(input.unsafeToString())
+        }
+    )
+
+    eventLoop(trail, jsenv.pollEvents)
+}

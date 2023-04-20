@@ -1,0 +1,21 @@
+module reactive/examples
+
+import reactive/reactive
+import reactive/jsenv
+
+def waitFor2Secs() = {
+    println("Example 1: After 2 seconds 'Done'")
+    val jsenv = createEnv()
+
+    eventLoop(
+        single(
+            fun(){
+                do wait(jsenv.waitFor(2000)); 
+                println("Done Waiting 1");
+            }),    
+        jsenv.pollEvents)
+}
+
+def main() = {
+    waitFor2Secs()
+}
