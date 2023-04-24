@@ -1,0 +1,16 @@
+module reactive/tests/singleWithNoWaits
+
+import reactive/reactive
+import reactive/jsenv
+
+def main() = {
+    finalize{
+        withJSEnv{
+            eventLoop(
+                single{
+                    println("No Waiting around here")
+                }
+            )
+        }
+    }
+}

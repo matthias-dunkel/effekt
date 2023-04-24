@@ -1,0 +1,20 @@
+module reactive/tests
+
+import reactive/reactive
+
+def internalEnv() = {
+    withInternalEnv{
+        eventLoop(
+            single(fun(){
+                println("Start")
+                do wait(do instant())
+                println("End")
+            }
+            )
+        )
+    }
+}
+
+def main() = {
+    internalEnv()
+}

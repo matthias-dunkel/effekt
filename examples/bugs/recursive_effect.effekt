@@ -1,0 +1,21 @@
+effect e(): Unit
+
+def main() = {
+    try{
+        try {
+            do e()
+        } with e {
+            def e() = {
+                println("inner")
+                do e()
+                resume(())
+                }
+        }
+    } with e {
+        def e() = {
+            println("outer")
+            resume(())
+            }
+    }
+}
+

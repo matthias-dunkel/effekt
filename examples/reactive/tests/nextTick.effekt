@@ -1,0 +1,22 @@
+import reactive/reactive
+
+extern io def ex_nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
+
+def loop() = {
+    var i = 0;
+    while(i < 10){
+        i = i + 1;
+        println(i)
+        do nextTick()
+    }
+}
+
+def async_loop() = {
+    try {
+        loop()
+    } with  Tick {
+        def nextTick() = ex_nextIteration{ resume(()) }
+    }
+}
+
+def main() = async_loop()

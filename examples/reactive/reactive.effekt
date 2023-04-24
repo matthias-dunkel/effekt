@@ -49,9 +49,17 @@ effect Wait {
     def wait(event: String): EventData 
 }
 
-def single(trail: => Unit / {Wait} at {global, io}): Coroutine[Event] = {
+effect Poll {
+    def poll(): Dequeue[Event]
+}
+
+effect Tick {
+    def nextTick(): Unit
+}
+
+def single (trail: => Unit / { Wait } at {global, io}): Coroutine[Event] = {
     try {
-        trail();
+        trail()
         Done()
     } with Wait {
         def wait(event) = {
@@ -59,7 +67,7 @@ def single(trail: => Unit / {Wait} at {global, io}): Coroutine[Event] = {
                 fun(_event: Event, before: Coroutine[Event]){
                     if(event == _event.id){
                         resume(_event.data)
-                    }else{
+                    } else {
                         before
                     }
                 }
@@ -104,19 +112,52 @@ def parAnd(firstTrail: Coroutine[Event], secondTrail: Coroutine[Event]): Corouti
     }
 }
 
-extern io def nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
-
-def eventLoop (trail: Coroutine[Event], poll: => Dequeue[Event] at {}): Unit / {} = {
-    if(trail != Done()) {
-       poll().popFront() match {
-       case None() => nextIteration{eventLoop(trail, poll)}
-       case Some((e, q)) 
-         => trail match {
-                    case Done()  => ()
-                    case More(f) => nextIteration{eventLoop(f(e, More(f)), poll)}
+def eventLoop (trail: Coroutine[Event]): Unit / {Tick, Poll} = {
+    var t = trail
+    while(t != Done()){
+        var q = do poll();
+        while(not(q.isEmpty())) {
+            q.popFront() match {
+                case None() => ()
+                case Some((e, q1)) => 
+                    q = q1;
+                    t match {
+                        case Done() => ()
+                        case More(f) => t = f(e, More(f))
+                    }
             }
         }
+        do nextTick()
     }
-    ()
 }
 
+def finalize{f: => Unit / {Poll, Tick}} = {
+    try {
+        f()
+    } with Poll {
+        def poll() = resume(emptyQueue())
+    } with Tick {
+        def nextTick() = resume(())
+    }
+}
+
+effect InternalEvent{
+    def instant(): String
+}
+
+def withInternalEnv{ f: => Unit / {Poll, Tick, InternalEvent} } = {
+    println("withInternalENv: Not completely implemented")
+    var queue = emptyQueue()
+    try {
+        f()
+    } with Poll {
+        def poll() = resume(queue)
+    } with Tick {
+        def nextTick() = resume(())
+    } with  InternalEvent {
+        def instant() = {
+                queue = queue.pushBack(Event("instant", Base()))
+                resume("instant")
+            }
+    }
+}

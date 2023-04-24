@@ -5,30 +5,28 @@ import reactive/reactive
 
 extern include "jsenv.js"
 
-type EventPoll = => Dequeue[Event] at {}
-
 extern type JSEnv
 
 extern type JSEvent
 
-// Utility
-
 extern type JSArray
 
-extern pure def exampleArray(): JSArray = "[1,2,3,4,5,6]"
+effect getJSEnv(): JSEnv
 
-extern pure def length(array: JSArray): Int = "array.length"
+extern pure def ex_exampleArray(): JSArray = "[1,2,3,4,5,6]"
 
-extern pure def getAt[JSA](array: JSArray, i: Int): JSA = "array[i]"
+extern pure def ex_length(array: JSArray): Int = "array.length"
+
+extern pure def ex_getAt[JSA](array: JSArray, i: Int): JSA = "array[i]"
 
 def toList[JSA, B](array: JSArray){deserializeElements: JSA => B}: List[B] = {
     var list = []
     var index: Int = 0
-    var size = array.length()
+    var size = array.ex_length()
     while(index < size){
         list = list.append(
             [deserializeElements(
-                array.getAt(index)
+                array.ex_getAt(index)
                 )
             ]
             )
@@ -38,33 +36,65 @@ def toList[JSA, B](array: JSArray){deserializeElements: JSA => B}: List[B] = {
     list
 }
 
-extern pure def createEnv(): JSEnv = "new JSEnv()"
+extern io def ex_nextIteration[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
 
-extern pure def pollJSEvents(env: JSEnv): JSArray = "env.pollEvents()"
+extern pure def ex_createEnv(): JSEnv = "new JSEnv()"
 
-extern pure def getEventId(event: JSEvent): String = "event.id"
+extern pure def ex_pollJSEvents(env: JSEnv): JSArray = "env.pollEvents()"
 
-extern pure def getEventData[A](event: JSEvent): A = "event.data"
+extern pure def ex_getEventId(event: JSEvent): String = "event.id"
 
-extern pure def getEventType(event: JSEvent): String = "event.type"
+extern pure def ex_getEventData[A](event: JSEvent): A = "event.data"
 
-extern io def waitFor(env: JSEnv,t: Int): String = "env.waitFor(t)"
+extern pure def ex_getEventType(event: JSEvent): String = "event.type"
 
-extern io def question(env: JSEnv, question: String): String = "env.question(question)"
+extern io def ex_waitFor(env: JSEnv,t: Int): String = "env.waitFor(t)"
+
+def waitFor(t: Int) = do getJSEnv().ex_waitFor(t)
+
+extern io def ex_question(env: JSEnv, prompt: String): String = "env.question(question)"
+
+def question(prompt: String) = do getJSEnv().ex_question(prompt)
 
 // Effekt related
 
 def toEvent(event: JSEvent): Event = {
-    val eventType = event.getEventType()
+    val eventType = event.ex_getEventType()
     
     if(eventType == "question") {
-        Event(event.getEventId(), StringData(event.getEventData()))
+        Event(event.ex_getEventId(), StringData(event.ex_getEventData()))
     } else {
-        Event(event.getEventId(), Base())
+        Event(event.ex_getEventId(), Base())
     }
 } 
 
-def pollEvents(env: JSEnv): => Dequeue[Event] at {} = fun() {
-        var events = pollJSEvents(env).toList{ toEvent }
+def pollEvents(env: JSEnv): Dequeue[Event] =  {
+        var events = ex_pollJSEvents(env).toList{ toEvent }
         Dequeue(events, events.size, [], 0)
+}
+
+// Dequeue Helper
+def append[R](dq1: Dequeue[R], dq2: Dequeue[R]): Dequeue[R] = dq1 match {
+    case Dequeue(f1, fs1, r1, rs1) => 
+        dq2 match {
+            case Dequeue(f2, fs2, r2, rs2) => 
+                Dequeue(f1.append(f2), fs1 + fs2, r1.append(r2), rs1 + rs2)
+        }
+}
+
+
+def withJSEnv{ f: => Unit / {Poll, Tick, getJSEnv} } = {
+    val jsenv = ex_createEnv()
+    try {
+        f()
+    } with Poll {
+        def poll() = resume(jsenv.pollEvents().append(do poll()))
+    } with Tick {
+        def nextTick() = {
+            do nextTick()
+            ex_nextIteration{ resume(()) }
+        }
+    } with getJSEnv {
+        def getJSEnv() = resume(jsenv)
+    }
 }

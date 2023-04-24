@@ -1,0 +1,52 @@
+type EventData {
+    Base()
+    StringData(data: String)
+    IntData(data: Int)
+}
+
+type Coroutine {
+    Done()
+    More(eventId: String, cont: EventData => Coroutine at {global, io})
+}
+
+effect Wait {
+    def wait(event: String): EventData 
+}
+
+record Event(id: String, data: EventData)
+
+def single{ trail: => Unit / {Wait} }: Coroutine = {
+    try {
+        trail();
+        Done()
+    } with Wait {
+        def wait(event) = {
+            More(
+                event, fun(data: EventData) {
+                    single{ resume(data); ()}
+                }
+            )
+         } 
+    }   
+}
+
+def step(event: Event, cont: Coroutine): Coroutine = cont match {
+    case Done() => Done()
+    case More(eventId, cont2) => if(event.id == eventId) {
+        cont2(event.data)
+    } else {
+        More(eventId, cont2)
+    }
+}
+
+def parOr(firstTrail: Coroutine,  secondTrail: Coroutine): Coroutine = {
+    Tuple2(firstTrail, secondTrail) match {
+        case Tuple2(More(eventId1, cont1), More(eventId2, cont2)) => More(
+            "", // Was soll hier rein?
+            fun(event: Event, before: Coroutine){
+                parOr(step(event, More(cont1)), step(event, More(cont2)))
+            }
+        )
+        case Tuple2(t1, t2) => Done() 
+    }
+}
