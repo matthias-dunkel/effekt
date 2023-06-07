@@ -15,8 +15,6 @@ extern type JSEvent
 
 extern type JSArray
 
-extern pure def exampleArray(): JSArray = "[1,2,3,4,5,6]"
-
 extern pure def length(array: JSArray): Int = "array.length"
 
 extern pure def getAt[JSA](array: JSArray, i: Int): JSA = "array[i]"
