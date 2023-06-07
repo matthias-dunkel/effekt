@@ -1,0 +1,19 @@
+extern io def nextIterationAsValue[A](f: => A at {io, global}): Unit = "setTimeout(() => f().run(), 0)"
+extern io def nextIterationAsBlock[A]{f: => A}: Unit = "setTimeout(() => f().run(), 0)"
+
+
+def main() = {
+    var p in global = fun() {()}
+    p = fun(){
+        println("outer")
+        p = fun(){
+            println("inner")   
+        }
+    }
+
+    nextIterationAsValue(fun(){p()})
+
+    nextIterationAsBlock{
+        p()
+    }
+}

@@ -1,0 +1,33 @@
+import reactive/reactive
+
+def step(cr: Coroutine, event: Event): Coroutine = cr match {
+    case Done() => Done()
+    case More(f) => f(event)
+}
+
+def main() = region main {
+    var cr1 in global = Done()
+    cr1 = More(fun(event: Event){
+        if(event.id == "Mustafar") {
+            Done()
+        } else {
+            cr1
+        }
+    })
+
+    var cr2 in global = Done()
+    cr2 = More(fun(event: Event){
+        if(event.id == "Mustafar") {
+            Done()
+        } else {
+            cr2
+        }
+    })
+
+    var tasks = parAnd(cr1, cr2)
+
+    tasks = tasks.step(Event("Aldeeran", Base()))
+
+    tasks = tasks.step(Event("Mustafar", Base()))
+    
+}

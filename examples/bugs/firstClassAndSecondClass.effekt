@@ -1,0 +1,7 @@
+def blockAsArgument{ f: => Unit } = f()
+def valueAsArgument(f: => Unit at {io}) = f()
+
+def main() = {
+    blockAsArgument{println("Hello There")}
+    valueAsArgument(fun(){println("Generl Kenobi!")})
+}

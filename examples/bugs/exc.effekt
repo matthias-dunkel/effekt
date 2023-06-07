@@ -1,0 +1,13 @@
+effect Exc {
+    def throw(msg: String): Unit
+}
+
+def handler{f: => Unit / {Exc}} = try{ f() } with Exc {
+    def throw(msg) = {println(msg); resume(())}
+} 
+
+def effectful() = {
+    println("Anakin being the chosen one.")
+    do throw("Anakin is killing all the younglings.")
+}
+//

@@ -1,0 +1,22 @@
+import reactive/reactive
+
+def main() = region main {
+    var cr in global = Done()
+    cr = More(fun(event: Event){
+        if(event.id == "Mustafar") {
+            Done()
+        } else {
+            cr
+        }
+    })
+    
+    cr match {
+        case Done() => ()
+        case More(f) => cr = f(Event("Aldeeran", Base()))
+    }
+
+    cr match {
+        case Done() => ()
+        case More(f) => cr = f(Event("Mustafar", Base()))
+    }
+}

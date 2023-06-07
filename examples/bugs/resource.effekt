@@ -1,0 +1,12 @@
+extern interface Env
+
+extern io def createResource(): Env at {io} = "{key: 'value'}"
+extern io def getValue(res: Env at {io}): String = "res.key"
+extern io def setValue(res: Env at {io}, value: String): Unit = "res.key = value"
+
+def main() = {
+        var res = createResource()
+        println(res.getValue())
+        res.setValue("Hello")
+        println(res.getValue())
+    }

@@ -1,0 +1,4 @@
+
+
+extern io def nextIteration[A](f: => A at {}): Unit = "setTimeout(() => f().run(), 0)"
+

@@ -1,0 +1,23 @@
+import reactive/reactive
+import immutable/dequeue
+
+def main() = {
+    var poll in global = fun(){emptyQueue()}
+
+    poll = fun(){
+        println("outer")
+        poll = fun(){
+            println("inner")
+            Dequeue([Event("1", StringData("Yeah"))], 1, [], 0)
+        }
+        emptyQueue()
+    }
+       
+    val task1 = single(fun(){
+        val ev1 = do wait("1")                  
+        println(ev1.unsafeToString())
+    })
+    
+    eventLoop(task1, poll)
+}
+
