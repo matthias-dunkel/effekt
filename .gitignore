@@ -2,6 +2,7 @@
 *.code-workspace
 build/
 out/
+project/
 project/target/
 target/
 drafts/
@@ -14,6 +15,7 @@ bin
 .metals/
 .vscode/
 *.tgz
+.bloop
 
 notes/
 artwork/
